@@ -32,13 +32,15 @@ class MyHandler(xml.sax.ContentHandler):
 		self.subtag = None
 		self.subtext = None
 		self.year = None
+		self.pages = None
+		self.volume = None
 		self.url = None
 		self.mdate = None
 		self.key = None
 		self.publtype = None
 		self.kv = {}
 		
-	#元素开始时间处理
+	# 元素开始时间处理
 	def startElement(self, tag, attrs):
 		if tag is not None and len(tag.strip()) > 0 :
 			self.curtag = tag
@@ -51,17 +53,34 @@ class MyHandler(xml.sax.ContentHandler):
 				self.id += 1
 				
 				if attrs.has_key('key'):
-					self.key = str(attrs['key'])
+					self.kv['pkey'] = str(attrs['key'])
 					
 				if attrs.has_key('mdate'):
-					self.mdate = str(attrs['mdate'])
+					self.kv['mdate'] = str(attrs['mdate'])
 					
 				if attrs.has_key('publtype'):
-					self.publtype = str(attrs['publtype'])
+					self.kv['publtype'] = str(attrs['publtype'])
 			elif tag in sub_tags:
 				self.kv['sub_tag'] = str(tag)
 				
-	#元素结束事件处理
+	# 内容事件处理
+	def characters(self, content):
+		if self.curtag == "title":
+			self.title = content.strip()
+		elif self.curtag == "author":
+			self.author = content.strip()
+		elif self.curtag in sub_tags:
+			self.subtext = content.strip()
+		elif self.curtag == "year":
+			self.year = content.strip()
+		elif self.curtag == "url":
+			self.url = content.strip()
+		elif self.curtag == "pages":
+			self.pages = content.strip()
+		elif self.curtag == "volume":
+			self.volume = content.strip()
+										
+	# 元素结束事件处理
 	def endElement(self, tag):
 		if tag == 'title':
 			self.kv['title'] = str(self.title)
@@ -81,6 +100,12 @@ class MyHandler(xml.sax.ContentHandler):
 			
 		elif tag == 'year':
 			self.kv['year'] = str(self.year)
+		
+		elif tag == "pages":
+			self.kv['pages'] = str(self.pages)
+			
+		elif tag == "volume":
+			self.kv['volume'] = str(self.volume)
 			
 		elif tag in paper_tags:
 			tid = int(self.kv['id']) if self.kv.has_key('id') else 0
@@ -92,14 +117,16 @@ class MyHandler(xml.sax.ContentHandler):
 				title = ''
 			author = self.kv['author'] if self.kv.has_key('author') else 'NULL'
 			author = ','.join(author) if author is not None else 'NULL'
-			subtag = self.kv['subtag'] if self.kv.has_key('subtag') else 'NULL'
+			subtag = self.kv['sub_tag'] if self.kv.has_key('sub_tag') else 'NULL'
 			sub_detail = self.kv['sub_detail'] if self.kv.has_key('sub_detail') else 'NULL'
-			year = self.kv['year'] = self.kv['year'] if self.kv.has_key('year') else 0
+			year = self.kv['year'] if self.kv.has_key('year') else 0
+			pages = self.kv['pages'] if self.kv.has_key('pages') else 'NULL'
+			volume = self.kv['volume'] if self.kv.has_key('volume') else 'NULL'
 			url = self.kv['url'] if self.kv.has_key('url') else 'NULL'
 			mdate = self.kv['mdate'] if self.kv.has_key('mdate') else 'NULL'
 			pkey = self.kv['pkey'] if self.kv.has_key('pkey') else 'NULL'
 			publtype = self.kv['publtype'] if self.kv.has_key('publtype') else 'NULL'
-			param = (str(tid), ptag, title, author, subtag, sub_detail, year, url, mdate, pkey, publtype)
+			param = (str(tid), ptag, title, author, subtag, sub_detail, year, pages, volume, url, mdate, pkey, publtype)
 			print param
 			# 只抽取其中的会议论文
 			if url.find('db/conf') >= 0 or url.find('db/journals') >= 0:
@@ -107,22 +134,9 @@ class MyHandler(xml.sax.ContentHandler):
 
 			if len(self.params) == self.batch_len:
 				print len(self.params)
-				sql = "insert into paper(id, ptag, title, author, subtag, sub_detail, pyear, url, mdate, pkey, publtype) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
+				sql = "insert into paper(id, ptag, title, author, subtag, sub_detail, pyear, ppages, pvolume, url, mdate, pkey, publtype) values(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)"
 				self.util.execute_sql_params(sql, self.params)
 				self.params = []
-				
-	# 内容事件处理
-	def characters(self, content):
-		if self.curtag == "title":
-			self.title = content.strip()
-		elif self.curtag == "author":
-			self.author = content.strip()
-		elif self.curtag in sub_tags:
-			self.subtext = content.strip()
-		elif self.curtag == "year":
-			self.year = content.strip()
-		elif self.curtag == "url":
-			self.url = content.strip()
 	
 if __name__ == "__main__":
 	filename = 'E:\\DataSets\\dblp.xml'
